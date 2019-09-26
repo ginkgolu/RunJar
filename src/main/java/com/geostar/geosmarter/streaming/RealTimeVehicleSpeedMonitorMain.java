@@ -119,7 +119,7 @@ public class RealTimeVehicleSpeedMonitorMain implements Serializable {
 		JavaDStream<String> vehicleLogDStream = vehicleLogDS.map(new Function<Tuple2<String, String>, String>() {
 			private static final long serialVersionUID = 1L;
 			@Override
-			public String call(Tuple2<String, String> tuple2) throws Exception {
+			public String call(Tuple2<String, String> tuple2) {
 				return tuple2._2;
 			}
 		});
