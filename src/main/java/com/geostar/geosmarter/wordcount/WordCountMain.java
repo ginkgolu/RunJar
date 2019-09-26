@@ -54,7 +54,7 @@ public class WordCountMain {
 		JavaSparkContext sc = new JavaSparkContext(conf);
 		sc.setCheckpointDir("src/main/resources/checkpointDir");
 		// 读取文件
-		JavaRDD<String> lines = sc.textFile("RunJar/src/main/resources/word_count_test_data.txt");
+		JavaRDD<String> lines = sc.textFile("src/main/resources/word_count_test_data.txt");
 		
 		//添加filter
 		JavaRDD<String> filterLines = lines.filter(

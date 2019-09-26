@@ -176,7 +176,7 @@ public class RealTimeVehicleSpeedMonitorMain implements Serializable {
 
 	/**
 	 * reduces操作
-	 * @param 显示屏  <速度，1>
+	 * @param 监测点ID  <速度，1>
 	 * @return 
 	 * */
 	private JavaPairDStream<String, Tuple2<Integer, Integer>> getResult(JavaPairDStream<String, Tuple2<Integer, Integer>> monitorAndVehicleSpeedWithVehicleNumDStream) {
