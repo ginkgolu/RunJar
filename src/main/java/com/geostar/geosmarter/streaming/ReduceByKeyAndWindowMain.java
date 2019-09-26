@@ -2,6 +2,7 @@ package com.geostar.geosmarter.streaming;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
@@ -89,7 +90,7 @@ public class ReduceByKeyAndWindowMain {
 				t.foreachPartition(new VoidFunction<Iterator<Tuple2<String,Integer>>>() {
 					private static final long serialVersionUID = 1L;
 					@Override
-					public void call(Iterator<Tuple2<String, Integer>> t) {
+					public void call(Iterator<Tuple2<String, Integer>> t) throws IOException {
 						List<String> list = new ArrayList<>();
 						while (t.hasNext()) {
 							Tuple2<String, Integer> next = t.next();
