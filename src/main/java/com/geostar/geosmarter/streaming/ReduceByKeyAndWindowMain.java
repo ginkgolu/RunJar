@@ -160,21 +160,18 @@ public class ReduceByKeyAndWindowMain {
 		p.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
 		KafkaProducer<String, String> kafkaProducer = new KafkaProducer<>(p);
 		
-		Thread thread = new Thread(new Runnable() {
-			@Override
-			public void run() {
-				try {
-					while (true) {
-						String time = format.format(new Date());
-						ProducerRecord<String, String> record = new ProducerRecord<String, String>(topic, time);
-						kafkaProducer.send(record);
-						Thread.sleep(1000);
-					}
-				} catch (InterruptedException e) {
-					e.printStackTrace();
-				} finally {
-					kafkaProducer.close();
+		Thread thread = new Thread(() -> {
+			try {
+				while (true) {
+					String time = format.format(new Date());
+					ProducerRecord<String, String> record = new ProducerRecord<String, String>(topic, time);
+					kafkaProducer.send(record);
+					Thread.sleep(1000);
 				}
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			} finally {
+				kafkaProducer.close();
 			}
 		});
 		thread.start();
