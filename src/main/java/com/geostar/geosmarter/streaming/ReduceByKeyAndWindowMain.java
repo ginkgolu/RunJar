@@ -136,7 +136,7 @@ public class ReduceByKeyAndWindowMain {
 					private static final long serialVersionUID = 1L;
 					@Override
 					public Tuple2<String, Integer> call(String word) {
-						return new Tuple2<String, Integer>(word, 1);
+						return new Tuple2<>(word, 1);
 					}
 		});
 		return mapToPair;
