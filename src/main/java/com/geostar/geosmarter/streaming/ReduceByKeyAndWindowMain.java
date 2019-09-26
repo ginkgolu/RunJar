@@ -97,12 +97,7 @@ public class ReduceByKeyAndWindowMain {
 							String _1 = next._1;
 							list.add(_1);
 						}
-						list.sort(new Comparator<String>() {
-							@Override
-							public int compare(String t1, String t2) {
-								return t1.compareTo(t2);
-							}
-						});
+						list.sort(String::compareTo);
 						File file = new File("C:\\Users\\Administrator\\Desktop\\test\\test.txt");
 						if (!file.exists()) {
 							file.createNewFile();
