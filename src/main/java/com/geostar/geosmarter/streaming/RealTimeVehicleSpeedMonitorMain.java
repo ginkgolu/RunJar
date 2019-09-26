@@ -86,9 +86,9 @@ public class RealTimeVehicleSpeedMonitorMain implements Serializable {
 		jsc.sparkContext().setLogLevel(Common.SPARK_STREAMING_LOG_LEVEL);
 		// RDD快照
 		jsc.checkpoint(Common.SPARK_CHECK_POINT_DIR);
-		Map<String, String> kafkaParams = new HashMap<String, String>();
+		Map<String, String> kafkaParams = new HashMap<>();
 		kafkaParams.put(Common.METADATA_BROKER_LIST, Common.METADATA_BROKER_LIST_VALUE);
-		Set<String> topicSet = new HashSet<String>();
+		Set<String> topicSet = new HashSet<>();
 		topicSet.add(Common.KAFKA_TOPIC_SPARK_REAL_TIME_VEHICLE_LOG);
 		
 		//Step 3: 读取kafka数据
@@ -120,7 +120,6 @@ public class RealTimeVehicleSpeedMonitorMain implements Serializable {
 			private static final long serialVersionUID = 1L;
 			@Override
 			public String call(Tuple2<String, String> tuple2) throws Exception {
-				// new KeyedMessage<topic, key, value>
 				return tuple2._2;
 			}
 		});
@@ -134,7 +133,7 @@ public class RealTimeVehicleSpeedMonitorMain implements Serializable {
 		JavaDStream<String> vehicleLogFilterDStream = vehicleLogDStream.filter(new Function<String, Boolean>() {
 			private static final long serialVersionUID = 1L;
 			@Override
-			public Boolean call(String line) throws Exception {
+			public Boolean call(String line) {
 				// 移除掉包含Common.ILLEGAL_LOG的行
 				return !line.equals(Common.ILLEGAL_LOG);
 			}
@@ -143,16 +142,16 @@ public class RealTimeVehicleSpeedMonitorMain implements Serializable {
 	}
 
 	/**
-	 * @param log
+	 * @param （检测点）
 	 * @return 显示屏    速度
 	 * */
 	private JavaPairDStream<String, Integer> monitorAndVehicleSpeedDstream(JavaDStream<String> vehicleLogFilterDStream) {
 		JavaPairDStream<String, Integer> monitorAndVehicleSpeedDStream = vehicleLogFilterDStream.mapToPair(new PairFunction<String, String, Integer>() {
 			private static final long serialVersionUID = 1L;
 			@Override
-			public Tuple2<String, Integer> call(String line) throws Exception {
+			public Tuple2<String, Integer> call(String line) {
 				String[] split = line.split(Common.SEPARATOR);
-				return new Tuple2<String, Integer>(split[4], Integer.valueOf(split[2]));
+				return new Tuple2<>(split[4], Integer.valueOf(split[2]));
 			}
 		});
 		return monitorAndVehicleSpeedDStream;
@@ -160,15 +159,15 @@ public class RealTimeVehicleSpeedMonitorMain implements Serializable {
 
 	/**
 	 * map操作
-	 * @param 显示屏    车速
+	 * @param  （监测点ID    车速）
 	 * @return 显示屏  <车速  1>
 	 * */
 	private JavaPairDStream<String, Tuple2<Integer, Integer>> processKey(JavaPairDStream<String, Integer> monitorAndVehicleSpeedDStream) {
 		JavaPairDStream<String, Tuple2<Integer, Integer>> monitorAndVehicleSpeedWithVehicleNumDStream = monitorAndVehicleSpeedDStream.mapValues(new Function<Integer, Tuple2<Integer, Integer>>() {
 			private static final long serialVersionUID = 1L;
 			@Override
-			public Tuple2<Integer, Integer> call(Integer v) throws Exception {
-				return new Tuple2<Integer, Integer>(v, 1);
+			public Tuple2<Integer, Integer> call(Integer v) {
+				return new Tuple2<>(v, 1);
 			}
 		});
 		return monitorAndVehicleSpeedWithVehicleNumDStream;
@@ -176,25 +175,25 @@ public class RealTimeVehicleSpeedMonitorMain implements Serializable {
 
 	/**
 	 * reduces操作
-	 * @param 监测点ID  <速度，1>
+	 * @param （监测点ID  <速度，1>）
 	 * @return 
 	 * */
 	private JavaPairDStream<String, Tuple2<Integer, Integer>> getResult(JavaPairDStream<String, Tuple2<Integer, Integer>> monitorAndVehicleSpeedWithVehicleNumDStream) {
 		JavaPairDStream<String, Tuple2<Integer, Integer>> reduceByKeyAndWindow = monitorAndVehicleSpeedWithVehicleNumDStream.reduceByKeyAndWindow(new Function2<Tuple2<Integer, Integer>, Tuple2<Integer, Integer>, Tuple2<Integer, Integer>>() {
 			private static final long serialVersionUID = 1L;
 			@Override
-			public Tuple2<Integer, Integer> call(Tuple2<Integer, Integer> v1, Tuple2<Integer, Integer> v2) throws Exception {
+			public Tuple2<Integer, Integer> call(Tuple2<Integer, Integer> v1, Tuple2<Integer, Integer> v2) {
 				// <total_vehicle_speed, total_vehicle_num>
 				// 加入新值
-				return new Tuple2<Integer, Integer>(v1._1 + v2._1, v1._2 + v2._2());
+				return new Tuple2<>(v1._1 + v2._1, v1._2 + v2._2());
 			}
 		}, new Function2<Tuple2<Integer, Integer>, Tuple2<Integer, Integer>, Tuple2<Integer, Integer>>() {
 			private static final long serialVersionUID = 1L;
 			@Override
-			public Tuple2<Integer, Integer> call(Tuple2<Integer, Integer> v1, Tuple2<Integer, Integer> v2) throws Exception {
+			public Tuple2<Integer, Integer> call(Tuple2<Integer, Integer> v1, Tuple2<Integer, Integer> v2) {
 				// <total_vehicle_speed, total_vehicle_num>
 				// 移除之前的值
-				return new Tuple2<Integer, Integer>(v1._1 - v2._1, v2._2 - v2._2);
+				return new Tuple2<>(v1._1 - v2._1, v2._2 - v2._2);
 			}
 			// 每隔Common.SPARK_STREAMING_PROCESS_DATA_FREQUENCY秒，处理过去Common.SPARK_STREAMING_PROCESS_DATA_HISTORY分钟的数据
 		}, Durations.minutes(Common.SPARK_STREAMING_PROCESS_DATA_HISTORY), Durations.seconds(Common.SPARK_STREAMING_PROCESS_DATA_FREQUENCY));
@@ -208,9 +207,9 @@ public class RealTimeVehicleSpeedMonitorMain implements Serializable {
 		reduceByKeyAndWindow.foreachRDD(new VoidFunction<JavaPairRDD<String, Tuple2<Integer, Integer>>>() {
 			private static final long serialVersionUID = 1L;
 			@Override
-			public void call(JavaPairRDD<String, Tuple2<Integer, Integer>> rdd) throws Exception {
+			public void call(JavaPairRDD<String, Tuple2<Integer, Integer>> rdd) {
 				final SimpleDateFormat sdf = new SimpleDateFormat(Common.DATE_FORMAT_YYYY_MM_DD_HHMMSS);
-				final Map<Integer, Integer> result = new TreeMap<Integer, Integer>();
+				final Map<Integer, Integer> result = new TreeMap<>();
 				logger.warn("**********************");
 				rdd.foreachPartition(new VoidFunction<Iterator<Tuple2<String, Tuple2<Integer, Integer>>>>() {
 					private static final long serialVersionUID = 1L;
