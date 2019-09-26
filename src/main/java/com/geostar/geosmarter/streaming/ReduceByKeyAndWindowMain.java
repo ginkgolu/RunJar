@@ -6,7 +6,6 @@ import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -61,9 +60,9 @@ public class ReduceByKeyAndWindowMain {
 		conf.setAppName("wordCount");
 		JavaStreamingContext jsc = new JavaStreamingContext(conf, Durations.seconds(5));
 		jsc.checkpoint("C:\\Users\\Administrator\\Desktop\\test");
-		Map<String, String> kafkaParams = new HashMap<String, String>();
+		Map<String, String> kafkaParams = new HashMap<>();
 		kafkaParams.put(Common.METADATA_BROKER_LIST, Common.METADATA_BROKER_LIST_VALUE);
-		Set<String> topicSet = new HashSet<String>();
+		Set<String> topicSet = new HashSet<>();
 		topicSet.add("test");
 		
 		//Step 3:创建离散流
@@ -86,11 +85,11 @@ public class ReduceByKeyAndWindowMain {
 		windowedWordCounts.foreachRDD(new VoidFunction<JavaPairRDD<String,Integer>>() {
 			private static final long serialVersionUID = 1L;
 			@Override
-			public void call(JavaPairRDD<String, Integer> t) throws Exception {
+			public void call(JavaPairRDD<String, Integer> t) {
 				t.foreachPartition(new VoidFunction<Iterator<Tuple2<String,Integer>>>() {
 					private static final long serialVersionUID = 1L;
 					@Override
-					public void call(Iterator<Tuple2<String, Integer>> t) throws Exception {
+					public void call(Iterator<Tuple2<String, Integer>> t) {
 						List<String> list = new ArrayList<>();
 						while (t.hasNext()) {
 							Tuple2<String, Integer> next = t.next();
@@ -128,7 +127,7 @@ public class ReduceByKeyAndWindowMain {
 		JavaPairDStream<String, Integer> windowedWordCounts = mapToPair.reduceByKeyAndWindow(new Function2<Integer, Integer, Integer>() {
 			private static final long serialVersionUID = 1L;
 			@Override
-			public Integer call(Integer v1, Integer v2) throws Exception {
+			public Integer call(Integer v1, Integer v2) {
 				return v1 + v2;
 			}
 		}, Durations.seconds(15), Durations.seconds(10));
@@ -140,7 +139,7 @@ public class ReduceByKeyAndWindowMain {
 				new PairFunction<String, String, Integer>() {
 					private static final long serialVersionUID = 1L;
 					@Override
-					public Tuple2<String, Integer> call(String word) throws Exception {
+					public Tuple2<String, Integer> call(String word) {
 						return new Tuple2<String, Integer>(word, 1);
 					}
 		});
@@ -151,7 +150,7 @@ public class ReduceByKeyAndWindowMain {
 		JavaDStream<String> map = stream.map(new Function<Tuple2<String,String>, String>() {
 			private static final long serialVersionUID = 1L;
 			@Override
-			public String call(Tuple2<String, String> v1) throws Exception {
+			public String call(Tuple2<String, String> v1) {
 				return v1._2;
 			}
 		});
