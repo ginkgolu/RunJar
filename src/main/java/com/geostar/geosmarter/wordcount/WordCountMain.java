@@ -43,52 +43,46 @@ public class WordCountMain {
 		JavaRDD<String> lines = sc.textFile("RunJar/src/main/resources/word_count_test_data.txt");
 		
 		//Step 3：filter操作，过滤数据，只保留包含Hello和Hello1的数据
-		JavaRDD<String> filterLines = lines.filter(
-			new Function<String, Boolean>() {
-				private static final long serialVersionUID = -7222805379226673309L;
-				@Override
-				public Boolean call(String line) throws Exception {
-					return line.contains("Hello") || line.contains("Hello1");
-				}
+		JavaRDD<String> filterLines = lines.filter(new Function<String, Boolean>() {
+            private static final long serialVersionUID = -7222805379226673309L;
+            @Override
+            public Boolean call(String line) throws Exception {
+                return line.contains("Hello") || line.contains("Hello1");
+            }
 		});
 
 		//Step 4:flagMap操作，将每行数据以制表符分隔，扁平化处理
-		JavaRDD<String> words = filterLines.flatMap(
-			new FlatMapFunction<String, String>() {
-				private static final long serialVersionUID = 1L;
-				@Override
-				public Iterator<String> call(String line) {
+		JavaRDD<String> words = filterLines.flatMap(new FlatMapFunction<String, String>() {
+		    private static final long serialVersionUID = 1L;
+		    @Override
+            public Iterator<String> call(String line) {
 					return Arrays.asList(line.split("\t")).iterator();
 				}
 		});
 
 		//Step 5:mapToPair操作，将String转为<String,Integer>
-		JavaPairRDD<String, Integer> pairWords = words.mapToPair(
-			new PairFunction<String, String, Integer>() {
-				private static final long serialVersionUID = -2962565084610481112L;
-				@Override
-				public Tuple2<String, Integer> call(String word) {
+		JavaPairRDD<String, Integer> pairWords = words.mapToPair(new PairFunction<String, String, Integer>() {
+		    private static final long serialVersionUID = -2962565084610481112L;
+		    @Override
+            public Tuple2<String, Integer> call(String word) {
 					return new Tuple2<>(word, 1);
 				}
 		});
 		
 		//Step 6:reduceByKey操作，相同的key，将其value相加
-		JavaPairRDD<String, Integer> reduce = pairWords.reduceByKey(
-			new Function2<Integer, Integer, Integer>() {
-				private static final long serialVersionUID = 1L;
-				@Override
-				public Integer call(Integer v1, Integer v2) {
+		JavaPairRDD<String, Integer> reduce = pairWords.reduceByKey(new Function2<Integer, Integer, Integer>() {
+		    private static final long serialVersionUID = 1L;
+		    @Override
+            public Integer call(Integer v1, Integer v2) {
 					return v1 + v2;
 				}
 		});
-		
-		
+
 		//Step 7:mapToPair操作，将key和value颠倒
-		JavaPairRDD<Integer, String> result = reduce.mapToPair(
-			new PairFunction<Tuple2<String, Integer>, Integer, String>() {
-				private static final long serialVersionUID = -5424248599737135001L;
-				@Override
-				public Tuple2<Integer, String> call(Tuple2<String, Integer> tuple) {
+		JavaPairRDD<Integer, String> result = reduce.mapToPair(new PairFunction<Tuple2<String, Integer>, Integer, String>() {
+		    private static final long serialVersionUID = -5424248599737135001L;
+		    @Override
+            public Tuple2<Integer, String> call(Tuple2<String, Integer> tuple) {
 					return tuple.swap();
 				}
 		});
