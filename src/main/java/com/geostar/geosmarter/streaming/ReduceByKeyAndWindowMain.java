@@ -39,7 +39,7 @@ import kafka.serializer.StringDecoder;
 import scala.Tuple2;
 
 /**
- * 需求：测试reduceByKeyAndWindow操作，每间隔10处理前15秒的数据。
+ * 需求：测试reduceByKeyAndWindow操作，每间隔10处理前15秒的数据。（不严谨，有待修改）
  * 		reduceByKeyAndWindowMain数据处理模型：https://blog.csdn.net/luyinxing1/article/details/101361315
  * 		kafka单机版搭建：https://blog.csdn.net/luyinxing1/article/details/101204506
  * 
@@ -69,17 +69,54 @@ public class ReduceByKeyAndWindowMain {
 		//Step 3:创建离散流
 		JavaPairInputDStream<String, String> stream = KafkaUtils.createDirectStream(jsc, String.class, String.class, StringDecoder.class, StringDecoder.class, kafkaParams, topicSet);
 		
-		//Step 4:流转换
+		//Step 4:取出value
 		JavaDStream<String> map = map(stream);
+		//Step 5:对value进行计数，并扁平化处理
 		JavaPairDStream<String,Integer> mapToPair = mapToPair(map);
+		//Step 6:统计
 		JavaPairDStream<String,Integer> windowedWordCounts = reduceByKeyAndWindow(mapToPair);
-		
-		//Step 5：打印结果
+		//Step 7：打印结果
 		printResult(windowedWordCounts);
 		
-		//Step 6:启动SparkStreaming
+		//Step 8:启动SparkStreaming
 		jsc.start();
 		jsc.awaitTermination();
+	}
+
+	/**
+	 * map操作，取出value   key为null
+	 * */
+	public static JavaDStream<String> map(JavaPairInputDStream<String, String> stream) {
+		JavaDStream<String> map = stream.map(new Function<Tuple2<String,String>, String>() {
+			private static final long serialVersionUID = 1L;
+			@Override
+			public String call(Tuple2<String, String> v1) {
+				return v1._2;
+			}
+		});
+		return map;
+	}
+
+	public static JavaPairDStream<String, Integer> mapToPair(JavaDStream<String> map) {
+		JavaPairDStream<String, Integer> mapToPair = map.mapToPair(new PairFunction<String, String, Integer>() {
+			private static final long serialVersionUID = 1L;
+			@Override
+			public Tuple2<String, Integer> call(String word) {
+				return new Tuple2<>(word, 1);
+			}
+		});
+		return mapToPair;
+	}
+
+	public static JavaPairDStream<String, Integer> reduceByKeyAndWindow(JavaPairDStream<String,Integer> mapToPair) {
+		JavaPairDStream<String, Integer> windowedWordCounts = mapToPair.reduceByKeyAndWindow(new Function2<Integer, Integer, Integer>() {
+			private static final long serialVersionUID = 1L;
+			@Override
+			public Integer call(Integer v1, Integer v2) {
+				return v1 + v2;
+			}
+		}, Durations.seconds(15), Durations.seconds(10));
+		return windowedWordCounts;
 	}
 	
 	public static void printResult(JavaPairDStream<String,Integer> windowedWordCounts) {
@@ -118,44 +155,7 @@ public class ReduceByKeyAndWindowMain {
 			}
 		});
 	}
-	
-	public static JavaPairDStream<String, Integer> reduceByKeyAndWindow(JavaPairDStream<String,Integer> mapToPair) {
-		JavaPairDStream<String, Integer> windowedWordCounts = mapToPair.reduceByKeyAndWindow(new Function2<Integer, Integer, Integer>() {
-			private static final long serialVersionUID = 1L;
-			@Override
-			public Integer call(Integer v1, Integer v2) {
-				return v1 + v2;
-			}
-		}, Durations.seconds(15), Durations.seconds(10));
-		return windowedWordCounts;
-	}
-	
-	public static JavaPairDStream<String, Integer> mapToPair(JavaDStream<String> map) {
-		JavaPairDStream<String, Integer> mapToPair = map.mapToPair(
-				new PairFunction<String, String, Integer>() {
-					private static final long serialVersionUID = 1L;
-					@Override
-					public Tuple2<String, Integer> call(String word) {
-						return new Tuple2<>(word, 1);
-					}
-		});
-		return mapToPair;
-	}
 
-	/**
-	 * map操作，将<String,String>转为String，只保留
-	 * */
-	public static JavaDStream<String> map(JavaPairInputDStream<String, String> stream) {
-		JavaDStream<String> map = stream.map(new Function<Tuple2<String,String>, String>() {
-			private static final long serialVersionUID = 1L;
-			@Override
-			public String call(Tuple2<String, String> v1) {
-				return v1._2;
-			}
-		});
-		return map;
-	}
-	
 	public static void produceData() {
 		Properties p = new Properties();
 		p.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "192.168.244.135:9092");
@@ -178,7 +178,7 @@ public class ReduceByKeyAndWindowMain {
 			}
 		});
 		thread.start();
-
 	}
+
 }
 
