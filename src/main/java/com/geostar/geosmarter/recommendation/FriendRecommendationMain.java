@@ -6,6 +6,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
+import com.geostar.geosmarter.recommendation.entity.MyRelationShip;
 import org.apache.log4j.Logger;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
@@ -14,10 +15,10 @@ import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.PairFunction;
-import org.apache.spark.api.java.function.VoidFunction;
 
 import com.geostar.geosmarter.traffic.datagenerate.Common;
 
+import org.apache.spark.api.java.function.VoidFunction;
 import scala.Tuple2;
 
 
@@ -85,34 +86,37 @@ public class FriendRecommendationMain implements Serializable {
 		JavaSparkContext jsc = new JavaSparkContext(conf);
 
 		//Step 2:读取数据，生成第一个RDD
-		JavaRDD<String> lines = jsc.textFile("src/main/resources/recommendation_data");
+		JavaRDD<String> lines = jsc.textFile("RunJar/src/main/resources/recommendation_data");
 		
-		//Step 3:RDD转换
+		//Step 3:记录所有人关系，并扁平化处理
 		JavaRDD<String> flatMapRDD = flatMapRDD(lines);
+		//Step 4:将人物与关系切分开
 		JavaPairRDD<String, Integer> mapToPairRDD = mapToPairRDD(flatMapRDD);
+		//Step 5:相同key，将其value合并
 		JavaPairRDD<String, Iterable<Integer>> groupByKeyRDD = mapToPairRDD.groupByKey();
+		//Step 6:将value值相加，并互换key与value的值，在进行降序
 		JavaPairRDD<Integer, String> sortByKeyRDD = sortedRDD(groupByKeyRDD);
+		//Step 7:过滤掉没有关系的人
 		JavaPairRDD<Integer, String> filterRDD = filterRDD(sortByKeyRDD);
 
-		//Step 4:推荐好友
+		//Step 8:推荐好友
 		recommendProcess(filterRDD);
 
-		//Step 5:关闭spark会话
-		closeJsc(jsc);
+		//Step 9:关闭spark会话
+		jsc.stop();
 
 	}
 
 	/**
-	 * 根据每行数据，记录所有人的关系
+	 * Step 3 根据每行数据，记录所有人的关系
 	 * A-B-0 表示直接关系
 	 * B-C-1 表示间接关系
 	 */
 	private JavaRDD<String> flatMapRDD(JavaRDD<String> lines) {
 		JavaRDD<String> flatMapRDD = lines.flatMap(new FlatMapFunction<String, String>() {
 			private static final long serialVersionUID = 1L;
-
 			@Override
-			public Iterator<String> call(String line) throws Exception {
+			public Iterator<String> call(String line) {
 				String[] split = line.split(Common.BLANK);
 				List<String> relationshipList = new ArrayList<>();
 				if (split != null && split.length > 0) {
@@ -140,6 +144,7 @@ public class FriendRecommendationMain implements Serializable {
 	}
 
 	/**
+	 * Step 4
 	 * input: F-G-0, D-F-1
 	 * output: <F-G, 0>, <D-F, 1>
 	 */
@@ -147,15 +152,16 @@ public class FriendRecommendationMain implements Serializable {
 		JavaPairRDD<String, Integer> mapToPairRDD = flatMapRDD.mapToPair(new PairFunction<String, String, Integer>() {
 			private static final long serialVersionUID = 1L;
 			@Override
-			public Tuple2<String, Integer> call(String str) throws Exception {
+			public Tuple2<String, Integer> call(String str) {
 				String[] split = str.split(Common.MINUS);
-				return new Tuple2<String, Integer>(split[0] + Common.MINUS + split[1], Integer.valueOf(split[2]));
+				return new Tuple2<>(split[0] + Common.MINUS + split[1], Integer.valueOf(split[2]));
 			}
 		});
 		return mapToPairRDD;
 	}
 
 	/**
+	 * Step 6
 	 * 对间接关系的记录进行统计: <1,A-F>, <2,D-F>
 	 * 忽略统计直接关系的记录    : <0,C-E>, <0,C-D>
 	 */
@@ -175,15 +181,16 @@ public class FriendRecommendationMain implements Serializable {
 					sum++;
 				}
 				if (!isDirectRelation) {
-					return new Tuple2<Integer, String>(sum, t._1);
+					return new Tuple2<>(sum, t._1);
 				}
-				return new Tuple2<Integer, String>(0, t._1);
+				return new Tuple2<>(0, t._1);
 			}
 		}).sortByKey(false);
 		return sortByKeyRDD;
 	}
 
 	/**
+	 * Step 7
 	 * 把直接关系的记录排除掉: <0,C-E>, <0,C-D>
 	 * 那么剩下的就是间接关系的记录： <1,A-F>, <2,D-F>
 	 */
@@ -191,7 +198,7 @@ public class FriendRecommendationMain implements Serializable {
 		JavaPairRDD<Integer, String> filterRDD = sortByKeyRDD.filter(new Function<Tuple2<Integer, String>, Boolean>() {
 			private static final long serialVersionUID = 1L;
 			@Override
-			public Boolean call(Tuple2<Integer, String> t) throws Exception {
+			public Boolean call(Tuple2<Integer, String> t) {
 				return t._1 != 0;
 			}
 		});
@@ -199,11 +206,9 @@ public class FriendRecommendationMain implements Serializable {
 	}
 
 	/**
-	 * 好友推荐
-	 * 
+	 * Step 8 好友推荐
 	 */
 	private void recommendProcess(JavaPairRDD<Integer, String> filterRDD) {
-		//把间接关系记录： <2,D-F>， 封装到MyRelationShip里面，一条记录生成两个对象，即：D-F-2,F-D-2
 		JavaRDD<MyRelationShip> flatMapRelationShipRDD = filterRDD.flatMap(new FlatMapFunction<Tuple2<Integer, String>, MyRelationShip>() {
 			private static final long serialVersionUID = 1L;
 			@Override
@@ -211,8 +216,6 @@ public class FriendRecommendationMain implements Serializable {
 				String key = t._2;
 				String[] split = key.split(Common.MINUS);
 				List<MyRelationShip> list = new ArrayList<>();
-				// 为什么这里要里使用自定义的类来封装呢？
-				// 主要是为了之后的排序
 				MyRelationShip relationShipAB = new MyRelationShip(split[0], split[1], t._1);
 				MyRelationShip relationShipBA = new MyRelationShip(split[1], split[0], t._1);
 				list.add(relationShipAB);
@@ -221,12 +224,11 @@ public class FriendRecommendationMain implements Serializable {
 			}
 		});
 
-		//对D-F-2,F-D-2记录进行再次封装 <D, D-F-2>,<F, F-D-2>
 		JavaPairRDD<String, MyRelationShip> mapToPairRelationShipRDD = flatMapRelationShipRDD.mapToPair(new PairFunction<MyRelationShip, String, MyRelationShip>() {
 			private static final long serialVersionUID = 1L;
 			@Override
 			public Tuple2<String, MyRelationShip> call(MyRelationShip vo) throws Exception {
-				return new Tuple2<String, MyRelationShip>(vo.getSelfName(), vo);
+				return new Tuple2<>(vo.getSelfName(), vo);
 			}
 		});
 
@@ -237,30 +239,6 @@ public class FriendRecommendationMain implements Serializable {
 		showResult(groupByKey);
 	}
 
-	/**
-	 * output:
-	 * A , Recommended : E, weith : 3
-	 * A , Recommended : D, weith : 2
-	 * B , Recommended : C, weith : 2
-	 * B , Recommended : G, weith : 2
-	 * C , Recommended : G, weith : 3
-	 * C , Recommended : B, weith : 2
-	 * D , Recommended : F, weith : 2
-	 * D , Recommended : A, weith : 2
-	 * E , Recommended : A, weith : 3
-	 * F , Recommended : D, weith : 2
-	 * F , Recommended : A, weith : 1
-	 * G , Recommended : C, weith : 3
-	 * G , Recommended : B, weith : 2
-	 * 
-	 * 
-	 * 从输出结果可以看出：
-	 * 给A推荐的话，分别是E,D
-	 * 给B推荐的话，分别是C,G
-	 * 给C推荐的话，分别是G,B
-	 * .....
-	 * 
-	 */
 	private void showResult(JavaPairRDD<String, Iterable<MyRelationShip>> groupByKey) {
 		groupByKey.foreach(new VoidFunction<Tuple2<String, Iterable<MyRelationShip>>>() {
 			private static final long serialVersionUID = 1L;
@@ -273,75 +251,16 @@ public class FriendRecommendationMain implements Serializable {
 				}
 				Collections.sort(list);
 				if (list != null && list.size() > 0) {
-					// 推荐Top n的好友
 					int num = Math.min(FriendRecommendationMain.TOP_N, list.size());
 					for (int i = 0; i < num; i++) {
 						MyRelationShip myRelationShip = list.get(i);
 						if (myRelationShip != null) {
-							logger.info(t._1 + " , Recommended : " + myRelationShip.getOtherName() + ", weith : " + myRelationShip.getWeight());
+							logger.info(t._1 + " , Recommended : " + myRelationShip.getOtherName() + ",weith : " + myRelationShip.getWeight());
 						}
 					}
 				}
 			}
 		});
-	}
-
-	/**
-	 * 关闭会话
-	 * */
-	private void closeJsc(JavaSparkContext jsc) {
-		jsc.stop();
-	}
-}
-
-class MyRelationShip implements Comparable<MyRelationShip>, Serializable {
-
-	private static final long serialVersionUID = 1L;
-
-	private String selfName;
-	private String otherName;
-	private int weight;
-
-	public MyRelationShip(String selfName, String otherName, int weight) {
-		super();
-		this.selfName = selfName;
-		this.otherName = otherName;
-		this.weight = weight;
-	}
-
-	@Override
-	public int compareTo(MyRelationShip o) {
-		if (this.selfName.hashCode() < o.selfName.hashCode()) {
-			if (this.otherName.hashCode() < o.otherName.hashCode()) {
-				return this.weight - o.weight;
-			}
-			return this.otherName.hashCode() - o.otherName.hashCode();
-		}
-		return this.selfName.hashCode() - o.selfName.hashCode();
-	}
-
-	public String getSelfName() {
-		return selfName;
-	}
-
-	public void setSelfName(String selfName) {
-		this.selfName = selfName;
-	}
-
-	public String getOtherName() {
-		return otherName;
-	}
-
-	public void setOtherName(String otherName) {
-		this.otherName = otherName;
-	}
-
-	public int getWeight() {
-		return weight;
-	}
-
-	public void setWeight(int weight) {
-		this.weight = weight;
 	}
 
 }
