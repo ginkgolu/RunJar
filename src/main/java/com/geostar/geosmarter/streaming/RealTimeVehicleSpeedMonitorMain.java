@@ -73,10 +73,10 @@ public class RealTimeVehicleSpeedMonitorMain implements Serializable {
 	}
 
 	private void processRealTimeVehicleSpeedMonitor() throws InterruptedException {
-		//Step 1: 模拟生产数据
+		//Step 1: 模拟生产数据流
 		generateDataToKafka();
 		
-		//Step 2: 初始化Spark
+		//Step 2: 初始化
 		SparkConf conf = new SparkConf();
 		conf.setMaster(Common.MASTER_NAME).setAppName(Common.APP_NAME_REAL_TIME_TRAFFIC_JAM_STATUS);
 		conf.set(Common.SPARK_LOCAL_DIR, Common.SPARK_CHECK_POINT_DIR);
@@ -91,23 +91,23 @@ public class RealTimeVehicleSpeedMonitorMain implements Serializable {
 		Set<String> topicSet = new HashSet<>();
 		topicSet.add(Common.KAFKA_TOPIC_SPARK_REAL_TIME_VEHICLE_LOG);
 		
-		//Step 3: 读取kafka数据
+		//Step 3: 读取kafka数据，生成第一个RDD
 		JavaPairInputDStream<String, String> vehicleLogDS = KafkaUtils.createDirectStream(jsc, String.class, String.class, StringDecoder.class, StringDecoder.class, kafkaParams, topicSet);
-		// 获取行： 2019-01-22 18:15:18 SSX14139U 141 10006 20011 4002
+		//Step 4:获取行： 2019-01-22 18:15:18 SSX14139U 141 10006 20011 4002
 		JavaDStream<String> vehicleLogDStream = vehicleLogDstream(vehicleLogDS);
-		// 移除脏数据
+		//Step 5:移除脏数据
 		JavaDStream<String> vehicleLogFilterDStream = filter(vehicleLogDStream);
-		// 返回<monitor_id, vehicle_speed>格式
+		//Step 6: 返回<监测点ID, 速度>格式
 		JavaPairDStream<String, Integer> monitorAndVehicleSpeedDStream = monitorAndVehicleSpeedDstream(vehicleLogFilterDStream);
-		// 对key进行处理
+		//Step 7:对速度进行计数
 		JavaPairDStream<String, Tuple2<Integer, Integer>> monitorAndVehicleSpeedWithVehicleNumDStream = processKey(monitorAndVehicleSpeedDStream);
-		// <monitor_id, Tuple2<total_vehicle_speed, total_vehicle_num>>
+		//Step 8:对速度和计数进行叠加
 		JavaPairDStream<String, Tuple2<Integer, Integer>> reduceByKeyAndWindow = getResult(monitorAndVehicleSpeedWithVehicleNumDStream);
 
-		// print result
+		//Step 9:求平均速度，绘制监测图
 		printResult(reduceByKeyAndWindow);
 
-		// 启动SparkStreaming
+		//Step 10:启动SparkStreaming
 		jsc.start();
 		jsc.awaitTermination();
 	}
@@ -142,8 +142,8 @@ public class RealTimeVehicleSpeedMonitorMain implements Serializable {
 	}
 
 	/**
-	 * @param （检测点）
-	 * @return 显示屏    速度
+	 * param 记录
+	 * return 监测点id    速度
 	 * */
 	private JavaPairDStream<String, Integer> monitorAndVehicleSpeedDstream(JavaDStream<String> vehicleLogFilterDStream) {
 		JavaPairDStream<String, Integer> monitorAndVehicleSpeedDStream = vehicleLogFilterDStream.mapToPair(new PairFunction<String, String, Integer>() {
@@ -159,8 +159,8 @@ public class RealTimeVehicleSpeedMonitorMain implements Serializable {
 
 	/**
 	 * map操作
-	 * @param  （监测点ID    车速）
-	 * @return 显示屏  <车速  1>
+	 * param  监测点id 车速
+	 * @return  监测点ID，<车速，1>
 	 * */
 	private JavaPairDStream<String, Tuple2<Integer, Integer>> processKey(JavaPairDStream<String, Integer> monitorAndVehicleSpeedDStream) {
 		JavaPairDStream<String, Tuple2<Integer, Integer>> monitorAndVehicleSpeedWithVehicleNumDStream = monitorAndVehicleSpeedDStream.mapValues(new Function<Integer, Tuple2<Integer, Integer>>() {
@@ -174,34 +174,35 @@ public class RealTimeVehicleSpeedMonitorMain implements Serializable {
 	}
 
 	/**
-	 * reduces操作
-	 * @param （监测点ID  <速度，1>）
+	 * reduces操作，相同key，把车速和计数叠加。去除已经统计过的
+	 * param  监测点ID，<车速，1>
 	 * @return 
 	 * */
 	private JavaPairDStream<String, Tuple2<Integer, Integer>> getResult(JavaPairDStream<String, Tuple2<Integer, Integer>> monitorAndVehicleSpeedWithVehicleNumDStream) {
-		JavaPairDStream<String, Tuple2<Integer, Integer>> reduceByKeyAndWindow = monitorAndVehicleSpeedWithVehicleNumDStream.reduceByKeyAndWindow(new Function2<Tuple2<Integer, Integer>, Tuple2<Integer, Integer>, Tuple2<Integer, Integer>>() {
-			private static final long serialVersionUID = 1L;
-			@Override
-			public Tuple2<Integer, Integer> call(Tuple2<Integer, Integer> v1, Tuple2<Integer, Integer> v2) {
-				// <total_vehicle_speed, total_vehicle_num>
-				// 加入新值
-				return new Tuple2<>(v1._1 + v2._1, v1._2 + v2._2());
-			}
-		}, new Function2<Tuple2<Integer, Integer>, Tuple2<Integer, Integer>, Tuple2<Integer, Integer>>() {
-			private static final long serialVersionUID = 1L;
-			@Override
-			public Tuple2<Integer, Integer> call(Tuple2<Integer, Integer> v1, Tuple2<Integer, Integer> v2) {
-				// <total_vehicle_speed, total_vehicle_num>
-				// 移除之前的值
-				return new Tuple2<>(v1._1 - v2._1, v2._2 - v2._2);
-			}
-			// 每隔Common.SPARK_STREAMING_PROCESS_DATA_FREQUENCY秒，处理过去Common.SPARK_STREAMING_PROCESS_DATA_HISTORY分钟的数据
-		}, Durations.minutes(Common.SPARK_STREAMING_PROCESS_DATA_HISTORY), Durations.seconds(Common.SPARK_STREAMING_PROCESS_DATA_FREQUENCY));
+		JavaPairDStream<String, Tuple2<Integer, Integer>> reduceByKeyAndWindow = monitorAndVehicleSpeedWithVehicleNumDStream.reduceByKeyAndWindow(
+			new Function2<Tuple2<Integer, Integer>, Tuple2<Integer, Integer>, Tuple2<Integer, Integer>>() {
+				private static final long serialVersionUID = 1L;
+				@Override
+				public Tuple2<Integer, Integer> call(Tuple2<Integer, Integer> v1, Tuple2<Integer, Integer> v2) {
+					// 加入新值
+					return new Tuple2<>(v1._1 + v2._1, v1._2 + v2._2());
+				}
+			}, new Function2<Tuple2<Integer, Integer>, Tuple2<Integer, Integer>, Tuple2<Integer, Integer>>() {
+				private static final long serialVersionUID = 1L;
+				@Override
+				public Tuple2<Integer, Integer> call(Tuple2<Integer, Integer> v1, Tuple2<Integer, Integer> v2) {
+					// 移除之前的值
+					return new Tuple2<>(v1._1 - v2._1, v2._2 - v2._2);
+				}
+				// 每隔Common.SPARK_STREAMING_PROCESS_DATA_FREQUENCY秒，处理过去Common.SPARK_STREAMING_PROCESS_DATA_HISTORY分钟的数据
+			}, Durations.minutes(Common.SPARK_STREAMING_PROCESS_DATA_HISTORY), Durations.seconds(Common.SPARK_STREAMING_PROCESS_DATA_FREQUENCY)
+		);
 		return reduceByKeyAndWindow;
 	}
 
 	/**
-	 * 结果输出，写文件
+	 * 统计每个监测点的平均车速，绘制检测图
+	 * @param  reduceByKeyAndWindow 监测点ID，<车速总和，计数总和>
 	 */
 	private void printResult(JavaPairDStream<String, Tuple2<Integer, Integer>> reduceByKeyAndWindow) {
 		reduceByKeyAndWindow.foreachRDD(new VoidFunction<JavaPairRDD<String, Tuple2<Integer, Integer>>>() {
@@ -210,7 +211,7 @@ public class RealTimeVehicleSpeedMonitorMain implements Serializable {
 			public void call(JavaPairRDD<String, Tuple2<Integer, Integer>> rdd) {
 				final SimpleDateFormat sdf = new SimpleDateFormat(Common.DATE_FORMAT_YYYY_MM_DD_HHMMSS);
 				final Map<Integer, Integer> result = new TreeMap<>();
-				logger.warn("**********************");
+
 				rdd.foreachPartition(new VoidFunction<Iterator<Tuple2<String, Tuple2<Integer, Integer>>>>() {
 					private static final long serialVersionUID = 1L;
 					@Override
@@ -220,10 +221,8 @@ public class RealTimeVehicleSpeedMonitorMain implements Serializable {
 							String monitorId = tuple._1;
 							int totalVehicleSpeed = tuple._2._1;
 							int totalVehicleNumber = tuple._2._2;
-							// 如果vehicle speed < 30，就判断为拥堵状态
 							if (totalVehicleNumber != 0) {
-								int averageVehicleSpeed = totalVehicleSpeed / totalVehicleNumber;
-								//collect result
+								int averageVehicleSpeed = totalVehicleSpeed / totalVehicleNumber;//平均车速
 								result.put(Integer.valueOf(monitorId), averageVehicleSpeed);
 							}
 						}
