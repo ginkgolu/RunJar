@@ -30,7 +30,7 @@ public class RealTimeDataGenerateUtils implements Serializable {
 		Random random = new Random();
 
 		// 异常道路
-		List<Integer> errorRoadIdList = new ArrayList<Integer>();
+		List<Integer> errorRoadIdList = new ArrayList<>();
 		dataLoad.generateErrorRoadIdList(random, errorRoadIdList);
 
 		//使用线程池

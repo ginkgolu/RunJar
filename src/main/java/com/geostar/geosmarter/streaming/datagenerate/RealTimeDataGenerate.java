@@ -15,10 +15,10 @@ import kafka.producer.ProducerConfig;
 
 
 /**
- * 产生实时数据线程类<br>
+ * 产生实时数据线程类
  * 
- * 该线程会每隔{@link Common.DATA_GENERATION_FREQUENCY}秒，<br>
- * 向Kafka中生产数据最大值为{@link Common.DATA_GENERATION_MAX_CAPACITY}的数据。<br>
+ * 该线程会每隔{@link Common.DATA_GENERATION_FREQUENCY}秒，
+ * 向Kafka中生产数据最大值为{@link Common.DATA_GENERATION_MAX_CAPACITY}的数据。
  * 
  * @author luyinxing
  * @created 2019-07-24
@@ -35,7 +35,7 @@ public class RealTimeDataGenerate implements Runnable {
 		this.roadIdArray = roadIdArray;
 		this.random = random;
 		this.errorRoadIdList = errorRoadIdList;
-		producer = new Producer<String, String>(createProducerConfig());
+		producer = new Producer<>(createProducerConfig());
 	}
 
 	@Override
@@ -62,17 +62,15 @@ public class RealTimeDataGenerate implements Runnable {
 	 * 向kafka中发送数据
 	 */
 	private void generateRealTimeDataToKafka(int key) {
-		producer.send(new KeyedMessage<String, String>(Common.KAFKA_TOPIC_SPARK_REAL_TIME_VEHICLE_LOG, key+Common.EMPTY, getOneVehicleLog()));
+		producer.send(new KeyedMessage<>(Common.KAFKA_TOPIC_SPARK_REAL_TIME_VEHICLE_LOG, key+Common.EMPTY, getOneVehicleLog()));
 	}
 
 	/**
-	 * 产生一条vehicle log<br>
-	 * e.g.2019-01-22 18:15:18 SSX14139U 141 10006 20011 4002
+	 * 产生一条vehicle log<2019-01-22 18:15:18 SSX14139U 141 10006 20011 4002>
 	 */
 	public String getOneVehicleLog() {
-		String vehiclePlate = VehiclePlateGenerateSG.generatePlate(true);
-		// 这里生成的vehicle log数据为实时数据，所以，data_time的format有所改变,并且vehiclePlate字段可以重复。其他字段保持不变。
-		String oneVehicleLog = GenerateVehicleLog.getOneVehicleLog(true, Common.EMPTY, random, errorRoadIdList, vehiclePlate, roadIdArray);
+		String vehiclePlate = VehiclePlateGenerateSG.generatePlate(true);//车牌
+		String oneVehicleLog = GenerateVehicleLog.getOneVehicleLog(true, Common.EMPTY, random, errorRoadIdList, vehiclePlate, roadIdArray);//记录
 		if (oneVehicleLog != null && oneVehicleLog.length() > 0) {
 			oneVehicleLog = oneVehicleLog.substring(0, oneVehicleLog.length() - 1);
 		} else {

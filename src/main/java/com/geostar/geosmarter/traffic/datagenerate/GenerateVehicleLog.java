@@ -59,7 +59,7 @@ public class GenerateVehicleLog implements Callable<String>{
 	 * @param 异常道路集合
 	 * @param 车辆登记号
 	 * @param 道路集合
-	 * @return 时间   车辆编号   速度   道路编号   显示屏编号   摄像头编号
+	 * @return 	时间	车牌	速度	道路编号	监测点编号	摄像头编号
 	 * */
 	public static String getOneVehicleLog(boolean isRealTime, String date, Random random, List<Integer> errorRoadIdList, String vehiclePlate, Integer[] roadIdArray) {
 		StringBuffer contentSb = new StringBuffer();
@@ -76,18 +76,14 @@ public class GenerateVehicleLog implements Callable<String>{
 				// 部分坏掉
 				monitorIdArray[0] = roadId * 2 - 1;
 				monitorIdArray[1] = roadId * 2 - 1;
-
 				monitorId = monitorIdArray[random.nextInt(monitorIdArray.length)];
-
 				cameraIdArray[0] = roadId * 4 - 3;
 				cameraIdArray[1] = roadId * 4 - 2;
 			}
 		} else {
 			monitorIdArray[0] = roadId * 2 - 1;
 			monitorIdArray[1] = roadId * 2;
-
 			monitorId = monitorIdArray[random.nextInt(monitorIdArray.length)];
-
 			cameraIdArray[0] = monitorId * 2 - 1;
 			cameraIdArray[1] = monitorId * 2;
 		}

@@ -52,7 +52,7 @@ public class ReduceByKeyAndWindowMain {
 	public static SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
 	public static void main(String[] args) throws InterruptedException {
-		//Step 1:生产数据,写入kafka,模拟数据流
+		//Step 1:模拟生产实时数据
 		produceData();
 		
 		//Step 2:创建spark会话
@@ -141,7 +141,10 @@ public class ReduceByKeyAndWindowMain {
 		});
 		return mapToPair;
 	}
-	
+
+	/**
+	 * map操作，将<String,String>转为String，只保留
+	 * */
 	public static JavaDStream<String> map(JavaPairInputDStream<String, String> stream) {
 		JavaDStream<String> map = stream.map(new Function<Tuple2<String,String>, String>() {
 			private static final long serialVersionUID = 1L;
@@ -164,7 +167,7 @@ public class ReduceByKeyAndWindowMain {
 			try {
 				while (true) {
 					String time = format.format(new Date());
-					ProducerRecord<String, String> record = new ProducerRecord<String, String>(topic, time);
+					ProducerRecord<String, String> record = new ProducerRecord<>(topic, time);
 					kafkaProducer.send(record);
 					Thread.sleep(1000);
 				}
@@ -175,6 +178,7 @@ public class ReduceByKeyAndWindowMain {
 			}
 		});
 		thread.start();
+
 	}
 }
 

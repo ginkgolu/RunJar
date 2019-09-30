@@ -4,23 +4,10 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-
 /**
- * From wiki:
- * https://en.wikipedia.org/wiki/Vehicle_registration_plates_of_Singapore<br>
- * 
- * A typical vehicle registration number comes in the format "SKV 6201 B":<br>
- * 
- * <li>S – Vehicle class ("S", with some exceptions, stands for a private
- * vehicle since 1984)</li><br>
- * <li>KV – Alphabetical series ("I" and "O" are not used to avoid confusion
- * with "1" and "0")</li><br>
- * <li>6201 – Numerical series</li><br>
- * <li>B – Checksum letter ("F","I", "N", "O", "Q", "V" and "W" are never used
- * as checksum letters; absent on special government vehicle plates and events
- * vehicle plates)</li>
- * 
- */
+ * 产生车牌号的类，不重复
+ * SSX14139U
+ * */
 public class VehiclePlateGenerateSG implements Serializable {
 
 	private static final long serialVersionUID = -8006144823705880339L;
@@ -29,35 +16,33 @@ public class VehiclePlateGenerateSG implements Serializable {
 
 	// 主要目的就是使得产生的数字字符不在这个list里面
 	// 如果在这个list里面找到，那么需要重新产生
-	private static List<String> uniqueList = new ArrayList<String>();
+	private static List<String> uniqueList = new ArrayList<>();
 
 	public static String generatePlate(boolean ableDuplicatVehiclePlate) {
-		// System.out.println(ALPHABETICAL_ARRAY[18]);// S
 		String alphabeticalSeries = getAlphabeticalStr(Common.ALPHABETICAL_ARRAY, random) + getAlphabeticalStr(Common.ALPHABETICAL_ARRAY, random);
-		// System.out.println(alphabeticalSeries);//KV
-
 		String numbericalSeries = getNumericalSeriesStr(random, ableDuplicatVehiclePlate);
-		// System.out.println(numbericalSeries);//62010
-
 		String checksumLetter = getChecksumLetterStr(Common.ALPHABETICAL_ARRAY, random);
-		// System.out.println(checksumLetter);//B
-
+		//一个字母 + 两个字母 + 五位数字 + 一个字母
 		String singaporeVehiclePlate = Common.ALPHABETICAL_ARRAY[18] + alphabeticalSeries + numbericalSeries + checksumLetter;
 		return singaporeVehiclePlate;
 	}
 
+	/**
+	 * 获取一个字母
+	 * */
 	private static String getAlphabeticalStr(String[] ALPHABETICAL_ARRAY, Random random) {
-		String alphabeticalStr = Common.ALPHABETICAL_ARRAY[random.nextInt(Common.ALPHABETICAL_ARRAY.length)];
-		// "I", "O"
-		if (!(alphabeticalStr.equals(Common.ALPHABETICAL_ARRAY[8]) || alphabeticalStr.equals(Common.ALPHABETICAL_ARRAY[14]))) {
+		String alphabeticalStr = ALPHABETICAL_ARRAY[random.nextInt(ALPHABETICAL_ARRAY.length)];
+		if (!(alphabeticalStr.equals(ALPHABETICAL_ARRAY[8]) || alphabeticalStr.equals(ALPHABETICAL_ARRAY[14]))) {
 			return alphabeticalStr;
 		} else {
-			return getAlphabeticalStr(Common.ALPHABETICAL_ARRAY, random);
+			return getAlphabeticalStr(ALPHABETICAL_ARRAY, random);
 		}
 	}
 
+	/**
+	 * 五位随机数字
+	 * */
 	private static String getNumericalSeriesStr(Random random, boolean ableDuplicatVehiclePlate) {
-		// 为了区别真实的车牌，我们把数字设置为5位
 		String numericalStr = random.nextInt(10) + "" + random.nextInt(10) + "" + random.nextInt(10) + "" + random.nextInt(10) + "" + random.nextInt(10);
 		if (ableDuplicatVehiclePlate) {
 			return numericalStr;
@@ -72,10 +57,18 @@ public class VehiclePlateGenerateSG implements Serializable {
 		}
 	}
 
+	/**
+	 * 生成一个字母
+	 * */
 	private static String getChecksumLetterStr(String[] ALPHABETICAL_ARRAY, Random random) {
 		String checksumLetter = ALPHABETICAL_ARRAY[random.nextInt(ALPHABETICAL_ARRAY.length)];
-		// "F","I", "N", "O", "Q", "V" and "W"
-		if (!(checksumLetter.equals(Common.ALPHABETICAL_ARRAY[5]) || checksumLetter.equals(Common.ALPHABETICAL_ARRAY[8]) || checksumLetter.equals(Common.ALPHABETICAL_ARRAY[13]) || checksumLetter.equals(Common.ALPHABETICAL_ARRAY[14]) || checksumLetter.equals(Common.ALPHABETICAL_ARRAY[16]) || checksumLetter.equals(Common.ALPHABETICAL_ARRAY[21]) || checksumLetter.equals(Common.ALPHABETICAL_ARRAY[22]))) {
+		if (!(checksumLetter.equals(Common.ALPHABETICAL_ARRAY[5])
+				|| checksumLetter.equals(Common.ALPHABETICAL_ARRAY[8])
+				|| checksumLetter.equals(Common.ALPHABETICAL_ARRAY[13])
+				|| checksumLetter.equals(Common.ALPHABETICAL_ARRAY[14])
+				|| checksumLetter.equals(Common.ALPHABETICAL_ARRAY[16])
+				|| checksumLetter.equals(Common.ALPHABETICAL_ARRAY[21])
+				|| checksumLetter.equals(Common.ALPHABETICAL_ARRAY[22]))) {
 			return checksumLetter;
 		} else {
 			return getChecksumLetterStr(ALPHABETICAL_ARRAY, random);
